@@ -72,8 +72,9 @@ The full rules, with a worked example, are in [docs/incentive_mechanism.md](docs
 - **Every lecture gets the same 72 hours.** Telureo starts checking YouTube 48 hours after a lecture actually ends, every 30 minutes. YouTube's first answer opens the lecture's 72-hour scoring window, however late that answer comes.
 - **The score is YouTube's latest number.** During the 72 hours the number is read every 30 minutes, and each reading replaces the last. A number read 60 minutes ago or more doesn't count until a new one arrives.
 - **No answer, no score.** A lecture YouTube hasn't answered for within 7 days of checking is never counted.
-- **From minutes to weight.** An agency's score is the sum of its lectures' scores. Its weight is its score divided by the total of all agencies' scores, in exact arithmetic.
-- **Burn.** When every score is zero, or a validator can't get a valid dataset, the validator puts all weight on the subnet owner's UID.
+- **From minutes to weight.** An agency's score is the sum of its lectures' scores. Its share is its score divided by the total of all agencies' scores, in exact arithmetic.
+- **Burn rate.** TTedu is in its test phase, with few agencies so far. During it, 70% of the weight is burned: it goes to the subnet owner's UID. The other 30% is shared among the agencies by their shares.
+- **Nothing to reward.** When every score is zero, or a validator can't get a valid dataset, the validator burns everything.
 
 A lecture belongs to the miner registration (the hotkey and the block it registered at) its tutor belonged to when the lecture was booked. It never moves to another miner.
 

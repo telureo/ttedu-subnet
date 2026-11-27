@@ -2,6 +2,12 @@
 
 Every change to scoring, timing, or the dataset is listed here before it takes effect.
 
+## 0.4.0, November 27, 2026
+
+- The burn rate is 70%. TTedu is in its test phase, with few agencies so far. During it, a validator puts 70% of its weight on the subnet owner's UID, where it is burned, and shares the other 30% among the miners by their scores. Before, the miners shared all of it.
+- The rate is `BURN_RATE` in `scoring.py`. `ttedu validator run --burn-rate` shows it and can set another one, but validators agree only at the same rate.
+- With nothing to reward, a validator still burns everything.
+
 ## 0.3.0, November 27, 2026
 
 - Each lecture's 72-hour scoring window opens at YouTube's first answer. Before, it was fixed from 48 to 120 hours after the lecture's end. Now every lecture gets the same 72 hours, however late YouTube answers.

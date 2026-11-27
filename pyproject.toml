@@ -1,6 +1,6 @@
 [project]
 name = "edu-subnet"
-version = "0.3.0"
+version = "0.4.0"
 description = "TTedu, Bittensor subnet 35: the incentive rules, the data formats, and the ttedu command line for agencies (miners) and validators."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"

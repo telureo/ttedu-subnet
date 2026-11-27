@@ -57,13 +57,18 @@ This is `is_scored` in [`scoring.py`](../src/edu_subnet/scoring.py).
 
 - A lecture's score is its latest live watch-minutes.
 - A miner's score is the sum of the scores of its lectures that count now.
-- A miner's weight is its score divided by the total of all miners' scores.
+- A miner's share is its score divided by the total of all miners' scores.
+- A miner's weight is its share of the part that isn't burned.
 
-Minutes are whole numbers and weights are exact fractions, so every validator computes the same weights from the same dataset. A lecture is never counted twice. A dataset that lists one twice is refused.
+Minutes are whole numbers and shares are exact fractions, so every validator computes the same weights from the same dataset. A lecture is never counted twice. A dataset that lists one twice is refused.
 
 ## Burn
 
-A validator puts all weight on the subnet owner's UID when there is nothing to reward:
+**The burn rate is 70%.** TTedu is in its test phase, with few agencies so far. During it, a validator puts 70% of its weight on the subnet owner's UID, where it is burned, and shares the other 30% among the miners.
+
+The rate is `BURN_RATE` in [`scoring.py`](../src/edu_subnet/scoring.py). A change to it is listed in the [changelog](../CHANGELOG.md) before it takes effect.
+
+A validator burns everything when there is nothing to reward:
 
 - every miner score is zero, or
 - it can't get a valid dataset from Telureo.
@@ -80,11 +85,13 @@ Three lectures are inside their windows, with fresh numbers.
 | B | Agency 1 | 300 |
 | C | Agency 2 | 100 |
 
-Agency 1 scores 900 and Agency 2 scores 100. The total is 1,000, so Agency 1's weight is 9/10 and Agency 2's is 1/10.
+Agency 1 scores 900 and Agency 2 scores 100. The total is 1,000, so Agency 1's share is 9/10 and Agency 2's is 1/10.
 
-An hour later YouTube lowers lecture A to 400. Agency 1 now scores 700 of 800, so its weight is 7/8 and Agency 2's is 1/8.
+With the burn rate at 70%, the miners share 30% of the weight. Agency 1's weight is 27/100, Agency 2's is 3/100, and 70/100 goes to the subnet owner's UID.
 
-When lecture C's 72 hours end, it stops counting. Agency 1 then holds all the weight, until another agency's lecture starts counting.
+An hour later YouTube lowers lecture A to 400. Agency 1 now scores 700 of 800, so its share is 7/8 and Agency 2's is 1/8.
+
+When lecture C's 72 hours end, it stops counting. Agency 1 then holds the whole 30%, until another agency's lecture starts counting.
 
 ## What a validator refuses
 
