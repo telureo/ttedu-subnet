@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from edu_subnet.dataset import EARLIER_POLICY, SCORING_POLICY
+from edu_subnet import scoring
 from edu_subnet.validator import Neuron, SpotChecker, plan_weights, run
 
 UTC = timezone.utc
@@ -23,36 +24,50 @@ def dataset(*rows, read_at=NOW, policy=SCORING_POLICY):
             "lectures": list(rows)}
 
 
+def shares(payload) -> dict:
+    """The miners' shares among themselves: the plan with nothing burned."""
+    return plan_weights(payload, NEURONS, "owner", NOW, burn_rate=0).weights
+
+
 def test_weights_follow_live_minutes():
     plan = plan_weights(dataset(row("1", "hotA@100", 6000), row("2", "hotA@100", 3000), row("3", "hotB@200", 4500)),
-                        NEURONS, "owner", NOW)
+                        NEURONS, "owner", NOW, burn_rate=0)
     assert not plan.burn
     assert plan.weights == pytest.approx({1: 2 / 3, 2: 1 / 3})
+
+
+def test_the_subnets_burn_rate_is_70_percent():
+    assert scoring.BURN_RATE == pytest.approx(0.7)
+
+
+def test_by_default_70_percent_is_burned_and_the_miners_share_30():
+    rows = (row("1", "hotA@100", 6000), row("2", "hotA@100", 3000), row("3", "hotB@200", 4500))
+    plan = plan_weights(dataset(*rows), NEURONS, "owner", NOW)
+    assert not plan.burn
+    assert plan.weights == pytest.approx({0: 0.7, 1: 0.2, 2: 0.1})
+    assert sum(plan.weights.values()) == pytest.approx(1.0)
 
 
 def test_a_lecture_youtube_answered_late_still_counts_after_120_hours():
     late_end = NOW - timedelta(hours=125)  # a fixed window would have closed 5 hours ago
     late = row("1", "hotA@100", 600, actual_end_at=late_end.isoformat(),
                eligibility_start_at=(late_end + timedelta(hours=60)).isoformat())  # YouTube answered 12 hours late
-    plan = plan_weights(dataset(late, row("2", "hotB@200", 200)), NEURONS, "owner", NOW)
-    assert plan.weights == pytest.approx({1: 0.75, 2: 0.25})
+    assert shares(dataset(late, row("2", "hotB@200", 200))) == pytest.approx({1: 0.75, 2: 0.25})
 
 
 def test_a_lecture_still_waiting_for_youtube_counts_for_nothing():
     waiting = row("1", "hotA@100", None, eligibility_start_at=None, fetched_at=None, status="pending")
-    plan = plan_weights(dataset(waiting, row("2", "hotB@200", 200)), NEURONS, "owner", NOW)
-    assert plan.weights == {2: 1.0}
+    assert shares(dataset(waiting, row("2", "hotB@200", 200))) == {2: 1.0}
 
 
 def test_the_earlier_policy_still_gives_the_same_weights():
     rows = [row("1", "hotA@100", 6000, eligibility_start_at=None), row("2", "hotB@200", 3000, eligibility_start_at=None)]
-    plan = plan_weights(dataset(*rows, policy=EARLIER_POLICY), NEURONS, "owner", NOW)
-    assert plan.weights == pytest.approx({1: 2 / 3, 2: 1 / 3})
+    assert shares(dataset(*rows, policy=EARLIER_POLICY)) == pytest.approx({1: 2 / 3, 2: 1 / 3})
 
 
 def test_a_reregistered_hotkey_does_not_inherit_old_lectures():
-    plan = plan_weights(dataset(row("1", "hotA@50", 6000), row("2", "hotB@200", 100)), NEURONS, "owner", NOW)
-    assert plan.weights == {2: 1.0}  # hotA@50 is an earlier registration of hotA
+    # hotA@50 is an earlier registration of hotA
+    assert shares(dataset(row("1", "hotA@50", 6000), row("2", "hotB@200", 100))) == {2: 1.0}
 
 
 @pytest.mark.parametrize("payload, reason", [
@@ -67,6 +82,34 @@ def test_a_reregistered_hotkey_does_not_inherit_old_lectures():
 def test_nothing_to_reward_burns_to_the_owner(payload, reason):
     plan = plan_weights(payload, NEURONS, "owner", NOW)
     assert plan.burn and plan.weights == {0: 1.0} and reason in plan.reason
+
+
+def test_another_burn_rate_gives_the_miners_the_rest():
+    rows = (row("1", "hotA@100", 6000), row("2", "hotA@100", 3000), row("3", "hotB@200", 4500))
+    plan = plan_weights(dataset(*rows), NEURONS, "owner", NOW, burn_rate=0.25)
+    assert plan.weights == pytest.approx({0: 0.25, 1: 0.5, 2: 0.25})
+
+
+def test_a_burn_rate_of_100_percent_burns_everything_whatever_the_scores():
+    plan = plan_weights(dataset(row("1", "hotA@100", 6000)), NEURONS, "owner", NOW, burn_rate=1)
+    assert plan.burn and plan.weights == {0: 1.0} and plan.reason == "the burn rate is 100%"
+
+
+def test_with_nothing_burned_the_owner_gets_no_weight():
+    plan = plan_weights(dataset(row("1", "hotA@100", 6000), row("3", "hotB@200", 3000)), NEURONS, "owner", NOW, burn_rate=0)
+    assert plan.weights == pytest.approx({1: 2 / 3, 2: 1 / 3}) and 0 not in plan.weights
+
+
+def test_with_nothing_to_reward_everything_is_burned_at_any_rate():
+    for rate in (0, 0.7, 1):
+        plan = plan_weights(dataset(), NEURONS, "owner", NOW, burn_rate=rate)
+        assert plan.burn and plan.weights == {0: 1.0}
+
+
+@pytest.mark.parametrize("rate", [-0.1, 1.5])
+def test_a_burn_rate_outside_0_to_1_is_refused(rate):
+    with pytest.raises(ValueError, match="from 0 to 1"):
+        plan_weights(dataset(row("1", "hotA@100", 6000)), NEURONS, "owner", NOW, burn_rate=rate)
 
 
 def test_burning_needs_the_owner_to_be_registered():
@@ -113,7 +156,7 @@ def test_an_unreachable_platform_means_a_burn_round():
 
     run(fetch, lambda: (NEURONS, "owner"), submitted.append, interval_seconds=0, report=reports.append,
         rounds=2, sleep=lambda seconds: None, now=lambda: NOW)
-    assert submitted == [{0: 1.0}, {1: 1.0}]
+    assert submitted == [{0: 1.0}, pytest.approx({0: 0.7, 1: 0.3})]
     assert "Could not get the dataset" in reports[0] and "Burning" in reports[1]
 
 
@@ -144,3 +187,26 @@ def test_an_unreachable_chain_does_not_stop_the_validator():
         sleep=lambda seconds: None, now=lambda: NOW)
     assert submitted == [{0: 1.0}]
     assert "Could not set weights this round: no route to the chain" in reports[0]
+
+
+
+def test_a_round_says_what_it_burned():
+    said, sent = [], []
+    run(lambda: dataset(row("1", "hotA@100", 6000), row("2", "hotB@200", 3000)), lambda: (NEURONS, "owner"), sent.append,
+        interval_seconds=0, report=said.append, rounds=1, sleep=lambda _: None, now=lambda: NOW)
+    assert sent[0] == pytest.approx({0: 0.7, 1: 0.2, 2: 0.1})
+    assert said == ["Scored 2 lectures, with 30% of the weight for 2 miners and 70% burned."]
+
+
+def test_a_round_at_100_percent_burns_everything_and_says_so():
+    said, sent = [], []
+    run(lambda: dataset(row("1", "hotA@100", 6000)), lambda: (NEURONS, "owner"), sent.append,
+        interval_seconds=0, report=said.append, rounds=1, sleep=lambda _: None, now=lambda: NOW, burn_rate=1)
+    assert sent == [{0: 1.0}] and said == ["Burning this round: the burn rate is 100%."]
+
+
+def test_a_round_with_nothing_burned_reads_as_before():
+    said, sent = [], []
+    run(lambda: dataset(row("1", "hotA@100", 6000)), lambda: (NEURONS, "owner"), sent.append,
+        interval_seconds=0, report=said.append, rounds=1, sleep=lambda _: None, now=lambda: NOW, burn_rate=0)
+    assert sent == [{1: 1.0}] and said == ["Scored 1 lectures, with weights for 1 miners."]

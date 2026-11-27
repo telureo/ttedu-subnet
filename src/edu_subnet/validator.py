@@ -9,6 +9,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from fractions import Fraction
 
 from . import scoring
 from .dataset import miner_ref, parse_dataset
@@ -33,8 +34,16 @@ class WeightPlan:
     reason: str
 
 
-def plan_weights(payload: dict | None, neurons: list[Neuron], owner_hotkey: str, now: datetime) -> WeightPlan:
-    """The weights to submit for one dataset. Burns when there is nothing to reward (F-40)."""
+def plan_weights(payload: dict | None, neurons: list[Neuron], owner_hotkey: str, now: datetime,
+                 burn_rate: Fraction | float = scoring.BURN_RATE) -> WeightPlan:
+    """The weights to submit for one dataset.
+
+    `burn_rate` is the part of the weight that is burned, from 0 to 1: it goes to the subnet owner's UID. The rest
+    is shared among the miners by their scores. With nothing to reward, everything is burned (F-40).
+    """
+    burned = burn_rate if isinstance(burn_rate, Fraction) else Fraction(str(burn_rate))
+    if not 0 <= burned <= 1:
+        raise ValueError("The burn rate is a number from 0 to 1.")
     owner_uid = next((n.uid for n in neurons if n.hotkey == owner_hotkey), None)
     if owner_uid is None:
         raise ValueError("The subnet owner's hotkey is not registered on the subnet, so there is no UID to burn to.")
@@ -42,6 +51,8 @@ def plan_weights(payload: dict | None, neurons: list[Neuron], owner_hotkey: str,
     def burn(reason: str, scores: dict | None = None, lectures: int = 0) -> WeightPlan:
         return WeightPlan(True, {owner_uid: 1.0}, scores or {}, lectures, reason)
 
+    if burned == 1:
+        return burn("the burn rate is 100%")
     if payload is None:
         return burn("no valid dataset from the platform")
     try:
@@ -56,8 +67,10 @@ def plan_weights(payload: dict | None, neurons: list[Neuron], owner_hotkey: str,
     weights = scoring.target_weights(scores.miners)
     if weights.burn:
         return burn("every miner score is zero", scores.miners, len(records))
-    return WeightPlan(False, {uids[m]: float(share) for m, share in weights.shares.items()},
-                      scores.miners, len(records), "scored")
+    planned = {uids[m]: float(share * (1 - burned)) for m, share in weights.shares.items()}
+    if burned > 0:
+        planned[owner_uid] = planned.get(owner_uid, 0.0) + float(burned)
+    return WeightPlan(False, planned, scores.miners, len(records), "scored")
 
 
 @dataclass
@@ -104,7 +117,8 @@ def run(fetch: Callable[[], dict], snapshot: Callable[[], tuple[list[Neuron], st
         submit: Callable[[dict[int, float]], None], *, interval_seconds: float,
         checker: SpotChecker | None = None, report: Callable[[str], None] = log.info,
         rounds: int | None = None, sleep: Callable[[float], None] = time.sleep,
-        now: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> None:
+        now: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        burn_rate: Fraction | float = scoring.BURN_RATE) -> None:
     """Download, score, submit, spot-check; repeat. `rounds=None` runs forever.
 
     A round the chain refuses or cannot be reached for (weights set too soon after a restart, a dropped
@@ -119,9 +133,13 @@ def run(fetch: Callable[[], dict], snapshot: Callable[[], tuple[list[Neuron], st
             payload = None
         try:
             neurons, owner_hotkey = snapshot()
-            plan = plan_weights(payload, neurons, owner_hotkey, now())
+            plan = plan_weights(payload, neurons, owner_hotkey, now(), burn_rate)
             if plan.burn:
                 report(f"Burning this round: {plan.reason}.")
+            elif float(burn_rate) > 0:
+                paid = sum(1 for score in plan.miner_scores.values() if score > 0)
+                report(f"Scored {plan.lectures} lectures, with {1 - float(burn_rate):.0%} of the weight for {paid} miners "
+                       f"and {float(burn_rate):.0%} burned.")
             else:
                 report(f"Scored {plan.lectures} lectures, with weights for {len(plan.weights)} miners.")
             submit(plan.weights)

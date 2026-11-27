@@ -12,6 +12,7 @@ import typer
 from rich.console import Console  # comes with typer, which draws its help with it
 from typer.core import TyperGroup
 
+from . import scoring
 from .client import Platform, PlatformError
 
 # The subnet's wordmark, over the main help only (`ttedu`, `ttedu --help`). The subnet is TTedu, Bittensor subnet 35, as
@@ -90,6 +91,7 @@ def main(version: Annotated[bool, typer.Option("--version", callback=_show_versi
 DEFAULT_API = "https://telureo.com"
 WALLETS = "~/.bittensor/wallets"
 NETUID = 35  # TTedu, Bittensor subnet 35
+BURN_RATE = float(scoring.BURN_RATE)  # the subnet's burn rate, a validator's default
 Api = Annotated[str, typer.Option("--api", envvar="EDU_API_URL", help="The platform's address.")]
 # Like btcli: a wallet or hotkey left out is asked for, with btcli's saved choice (btcli config set) as the answer to
 # accept with Enter. Bittensor's own variables work too.
@@ -537,6 +539,10 @@ def validator_run(netuid: Netuid = NETUID, network: Network = "finney", api: Api
                   checks: Annotated[int, typer.Option(help="Lectures to spot-check per round.")] = 3,
                   dry_run: Annotated[bool, typer.Option("--dry-run", help="Print the weights without setting them.")] = False,
                   rounds: Annotated[int | None, typer.Option(help="Stop after this many rounds.")] = None,
+                  burn_rate: Annotated[float, typer.Option(
+                      "--burn-rate", envvar="TTEDU_BURN_RATE", min=0.0, max=1.0,
+                      help="The part of the weight that is burned, from 0 to 1: it goes to the subnet owner's UID. "
+                           "The default is the subnet's rate. Keep it, so that every validator's weights agree.")] = BURN_RATE,
                   wallet_name: WalletName = None, wallet_hotkey: WalletHotkey = None,
                   wallet_path: WalletPath = None):
     """Download the dataset, score it, set weights, and spot-check, every round."""
@@ -560,8 +566,9 @@ def validator_run(netuid: Netuid = NETUID, network: Network = "finney", api: Api
         else:
             chain.set_weights(wallet, weights)
 
+    typer.echo(f"Burn rate: {burn_rate:.0%} of the weight is burned, and {1 - burn_rate:.0%} goes to the miners.")
     run(lambda: platform.eligible(hotkey), chain.snapshot, submit, interval_seconds=interval,
-        checker=checker, report=typer.echo, rounds=rounds)
+        checker=checker, report=typer.echo, rounds=rounds, burn_rate=burn_rate)
 
 
 @validator.command("fetch")
@@ -585,7 +592,6 @@ def validator_score(file: Annotated[pathlib.Path, typer.Option("--file", prompt=
                     network: Network = "finney",
                     offline: Annotated[bool, typer.Option(help="Treat every miner in the file as registered.")] = False):
     """Score a saved dataset with the public rules and show the resulting weights."""
-    from . import scoring
     from .dataset import parse_dataset
 
     read_at, records = parse_dataset(json.loads(file.read_text()))
@@ -603,10 +609,13 @@ def validator_score(file: Annotated[pathlib.Path, typer.Option("--file", prompt=
     weights = scoring.target_weights(scores.miners)
     typer.echo(f"Dataset read at {read_at.isoformat()}: {len(records)} lectures")
     if weights.burn:
-        typer.echo("Every miner score is zero: burn.")
+        typer.echo("Every miner score is zero: everything is burned.")
+    else:
+        typer.echo(f"Burn rate {float(scoring.BURN_RATE):.0%}: the subnet owner's UID gets {float(scoring.BURN_RATE):.4f}, "
+                   f"and the miners share {float(1 - scoring.BURN_RATE):.4f}.")
     for miner_id, score in sorted(scores.miners.items(), key=lambda item: -item[1]):
-        share = weights.shares.get(miner_id, 0)
-        typer.echo(f"  {miner_id:<60} {score:>10}  {float(share):.4f}")
+        weight = weights.shares.get(miner_id, 0) * (1 - scoring.BURN_RATE)
+        typer.echo(f"  {miner_id:<60} {score:>10}  {float(weight):.4f}")
 
 
 @validator.command("check")

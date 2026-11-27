@@ -11,6 +11,10 @@ from typing import Iterable
 
 from . import timing
 
+# TTedu is in its test phase, with few agencies so far. During it, this part of the weight is burned: it goes to the
+# subnet owner's UID. The rest is shared among the agencies by their scores. A change is listed in CHANGELOG.md first.
+BURN_RATE = Fraction(7, 10)
+
 NO_POSITIVE_ACTIVITY = "No positive scored activity"
 AWAITING_ANALYTICS = "Awaiting analytics"
 

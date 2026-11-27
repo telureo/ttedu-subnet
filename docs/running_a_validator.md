@@ -101,6 +101,7 @@ Options of `ttedu validator run`:
 | `--checks` | `3` | Lectures to spot-check each round |
 | `--dry-run` | off | Print the weights without setting them |
 | `--rounds` | forever | Stop after this many rounds |
+| `--burn-rate` | `0.7` | The part of the weight that is burned, from 0 to 1: it goes to the subnet owner's UID. The default is the subnet's rate. Keep it, so that every validator's weights agree |
 
 ## What a round does
 
@@ -113,8 +114,10 @@ What the log lines mean:
 
 | Line | Meaning |
 |---|---|
-| `Scored 12 lectures, with weights for 4 miners.` | A normal round. |
+| `Burn rate: 70% of the weight is burned, and 30% goes to the miners.` | Printed once at the start. |
+| `Scored 12 lectures, with 30% of the weight for 4 miners and 70% burned.` | A normal round. |
 | `Burning this round: every miner score is zero.` | No lecture counts now, so all weight goes to the subnet owner's UID. |
+| `Burning this round: the burn rate is 100%.` | The validator was started with `--burn-rate 1`. |
 | `Burning this round: no valid dataset from the platform.` | Telureo couldn't be reached, or refused the request. The next round tries again. |
 | `Could not set weights this round: ...` | The chain refused or couldn't be reached, for example weights set too soon after a restart. The next round tries again. |
 | `Spot-checks are off.` | YouTube isn't connected. See step 3. |
