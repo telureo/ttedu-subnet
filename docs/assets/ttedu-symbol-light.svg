@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="10 24.4 80 51.1" width="320" height="204" role="img" aria-label="TTedu">
+  <g fill="none" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M15 34.5Q32 25.5 50 32.5" stroke="#17352c"/>
+    <path d="M32 29.5V70.5" stroke="#17352c"/>
+    <path d="M50 32.5Q68 25.5 85 34.5" stroke="#d9a400"/>
+    <path d="M68 29.5V70.5" stroke="#d9a400"/>
+  </g>
+</svg>

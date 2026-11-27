@@ -1,0 +1,71 @@
+# What it takes to run on TTedu, Bittensor subnet 35.
+#
+# A TTedu miner is a tutor agency. It runs no server: the agency uses the ttedu command line a few times, on the
+# computer that holds its keys, and works from its dashboard on telureo.com. So the miner numbers below describe
+# any ordinary computer.
+#
+# A validator downloads a small dataset every 30 minutes, scores it, and sets weights. It needs a small machine
+# that stays on, and no GPU.
+
+version: '0.3.0'  # matches the release of this repository
+
+compute_spec:
+
+  miner:
+
+    cpu:
+      min_cores: 1            # Any modern CPU
+      min_speed: 1.0          # GHz
+      recommended_cores: 2
+      recommended_speed: 2.0
+      architecture: "x86_64 or arm64"
+
+    gpu:
+      required: False         # An agency runs no model and no server
+
+    memory:
+      min_ram: 1              # GB
+      min_swap: 0
+      recommended_swap: 0
+      ram_type: "any"
+
+    storage:
+      min_space: 1            # GB, for the command line and a wallet
+      recommended_space: 2
+      type: "any"
+
+    os:
+      name: "Linux, macOS, or Windows"
+      version: "any that runs Python 3.11 or newer"
+
+  validator:
+
+    cpu:
+      min_cores: 2
+      min_speed: 2.0          # GHz
+      recommended_cores: 2
+      recommended_speed: 2.5
+      architecture: "x86_64 or arm64"
+
+    gpu:
+      required: False         # Scoring is arithmetic on a small dataset
+
+    memory:
+      min_ram: 2              # GB
+      min_swap: 0
+      recommended_swap: 2
+      ram_type: "any"
+
+    storage:
+      min_space: 5            # GB
+      recommended_space: 10
+      type: "SSD"
+
+    os:
+      name: "Ubuntu"
+      version: 22.04          # or newer, or any system that runs Python 3.11 or newer
+
+network_spec:
+  bandwidth:
+    download: 10              # Mbps, enough for the dataset and the chain
+    upload: 10

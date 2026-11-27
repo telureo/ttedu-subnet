@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Guides for agencies and validators
+    url: https://docs.telureo.com
+    about: How to run an agency, how to validate, and how scores work.
+  - name: A question about your agency or your validator
+    url: https://telureo.com/company#contact
+    about: Write to the Telureo team.
+  - name: Report a security problem
+    url: https://github.com/telureo/ttedu-subnet/security/advisories/new
+    about: Please report security problems privately, not in a public issue.

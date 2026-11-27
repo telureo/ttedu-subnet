@@ -1,0 +1,25 @@
+# The TTedu validator on Bittensor subnet 35, as a systemd service.
+#
+# 1. Set your user, the two paths, and your wallet names below.
+# 2. sudo cp scripts/ttedu-validator.service /etc/systemd/system/
+# 3. sudo systemctl daemon-reload
+# 4. sudo systemctl enable --now ttedu-validator
+#
+# Its log: journalctl -u ttedu-validator -f
+
+[Unit]
+Description=TTedu validator (Bittensor subnet 35)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=YOUR_USER
+WorkingDirectory=/path/to/ttedu-subnet
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/path/to/ttedu-subnet/.venv/bin/ttedu validator run --wallet.name YOUR_COLDKEY --wallet.hotkey YOUR_HOTKEY
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

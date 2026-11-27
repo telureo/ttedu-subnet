@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors and systems
+.idea/
+.vscode/
+.DS_Store
+
+# Never commit keys, wallets, or credentials
+.env
+*.pem
+client_secret*.json
+youtube.json
