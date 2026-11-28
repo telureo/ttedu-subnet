@@ -49,13 +49,20 @@ This step is optional, and recommended. With it, your validator checks Telureo's
 
 1. In your own Google Cloud project, enable the YouTube Analytics API.
 2. Create an OAuth client of type "Desktop app" and download its JSON file.
-3. Sign in once with the invited Google account:
+3. Publish the app, so your sign-in lasts. While the app's status is "Testing", Google ends every sign-in after 7 days. In Google Auth Platform:
+   - Under **Branding**, add an authorized domain, a home page, and a privacy policy link. Google asks for both links before it lets you publish. Your own site's pages work, and ours work too: the authorized domain `telureo.com`, the home page `https://telureo.com`, and the privacy policy link `https://telureo.com/privacy`. You need no logo and no terms of service link.
+   - Under **Audience**, press **Publish app** and confirm. You are the app's only user, so you don't need Google's verification.
+4. Sign in once with the invited Google account:
 
    ```bash
    ttedu validator connect-youtube --client-file client_secret.json
    ```
 
+   Google warns that it hasn't verified the app. Choose **Advanced**, then **Go to** your app's name. If you signed in while the app was still in Testing, sign in again after you publish.
+
 The access is read-only. Its credentials stay on your machine, in `~/.edu/youtube.json`, readable by your user only.
+
+If the sign-in ever stops working, your validator keeps scoring and setting weights. Only its checks against YouTube stop, and the log says `Spot-check failed this round`.
 
 ## 4. Try a dry run
 
@@ -121,6 +128,7 @@ What the log lines mean:
 | `Burning this round: no valid dataset from the platform.` | Telureo couldn't be reached, or refused the request. The next round tries again. |
 | `Could not set weights this round: ...` | The chain refused or couldn't be reached, for example weights set too soon after a restart. The next round tries again. |
 | `Spot-checks are off.` | YouTube isn't connected. See step 3. |
+| `Spot-check failed this round: ...` | The check against YouTube didn't work, often because the Google sign-in ended. Scoring and weights go on. Sign in again as in step 3. |
 
 If you ever see a `RED FLAG`, please [tell us](https://telureo.com/company#contact) and other validators. Any validator can confirm it against YouTube.
 
